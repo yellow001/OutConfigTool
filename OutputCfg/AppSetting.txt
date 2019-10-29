@@ -1,0 +1,14 @@
+﻿test::yellow
+connstring::server=120.25.84.142;database=TaskServer;uid=yellow;pwd=qW789456123=
+
+//配置表文件夹路径
+xlsCfgDir::E:\Project\策划文档\planning_document\表格
+
+//数据配置文件输出路径
+cfgOutputDir::E:\Project\策划文档\planning_document\表格数据输出
+
+//配置类输出文件夹路径
+cfgModelOutputDir::E:\Project\策划文档\planning_document\表格类输出
+
+//输出类型
+outputType::int_string_bool_long
