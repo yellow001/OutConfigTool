@@ -11,41 +11,85 @@ public class XlsTool {
 
     static string content = "";
 
+    static ModifyCache modifyCache;
+
+    /// <summary>
+    /// xls转成csv
+    /// </summary>
+    /// <param name="path"></param>
+    /// <param name="outPath"></param>
+    public static void XlsToCsv(string path, string outPath) {
+        if (modifyCache == null)
+        {
+            modifyCache = new ModifyCache();
+        }
+
+        string[] paths = Directory.GetFiles(path, "*.xl*", SearchOption.AllDirectories);
+        for (int i = 0; i < paths.Length; i++)
+        {
+            SingleXlsToCSV(paths[i],outPath);
+        }
+    }
+
     /// <summary>
     /// xls转成csv
     /// </summary>
     /// <param name="src"></param>
     /// <param name="dst"></param>
-    public static void XlsToCSV(string src, string dst) {
+    public static void SingleXlsToCSV(string src, string dst) {
         try {
             if ((src.EndsWith(".xls") || src.EndsWith(".xlsx"))&&!src.Contains("$")) {
-                using (FileStream st = File.Open(src, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)) {
+
+                string fileName = Path.GetFileNameWithoutExtension(src).ToLower();
+                string outPath = Path.Combine(dst, fileName+".csv");
+                // 获取文件信息的 UTC 写入时间戳 (Ticks)
+                FileInfo fileInfo = new FileInfo(src);
+                // 使用 Ticks 进行精确对比
+                long currentTicks = fileInfo.LastWriteTimeUtc.Ticks;
+                if (!modifyCache.IsDiff(fileName, currentTicks) && File.Exists(outPath))
+                {
+                    //修改时间没变，不管
+                    return;
+                }
+
+                using (FileStream st = File.Open(src, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                {
                     IExcelDataReader reader = ExcelReaderFactory.CreateReader(st);
-                    //Console.Write(reader.Name);
-                    StringBuilder sb = new StringBuilder();
-                    while (reader.Read()) {
-                        for (int i = 0; i < reader.FieldCount; i++) {
-                            sb.Append(reader.GetString(i));
-                            if (i != reader.FieldCount - 1) {
-                                sb.Append(",");
+                    // 使用 StreamWriter 确保资源正确释放，并指定 UTF8 编码
+                    using (var sw = new StreamWriter(outPath, false, Encoding.UTF8))
+                    {
+                        // 循环遍历 IExcelDataReader 中的所有行
+                        while (reader.Read())
+                        {
+                            StringBuilder line = new StringBuilder();
 
+                            // 循环遍历当前行中的所有列
+                            for (int i = 0; i < reader.FieldCount; i++)
+                            {
+                                // 1. 获取单元格内容。GetValue() 返回原始对象，ToString() 确保转换为文本。
+                                //    如果单元格为空，GetValue() 可能返回 null 或 DBNull.Value
+                                object value = reader.GetValue(i);
+                                string cellValue = value?.ToString() ?? string.Empty;
+
+                                // 2. CSV 转义：处理包含分隔符、引号或换行符的单元格。
+                                //    这是 CSV 导出的关键步骤，确保数据不会错位。
+                                cellValue = EscapeCsvField(cellValue, ",");
+
+                                // 3. 拼接单元格和分隔符
+                                line.Append(cellValue);
+                                if (i < reader.FieldCount - 1)
+                                {
+                                    line.Append(",");
+                                }
                             }
+
+                            // 写入当前行到文件
+                            sw.WriteLine(line.ToString());
                         }
-                        sb.Append("\r\n");
                     }
-
-                    string p = src.Replace(".xlsx", ".csv");
-                    p = p.Replace(".xls", "csv");
-
-                    using (FileStream stream = File.Create(p)) {
-                        byte[] content = Encoding.UTF8.GetBytes(sb.ToString());
-                        stream.Write(content, 0, content.Length);
-                    }
-                    reader.Close();
+                    Console.WriteLine($"数据已成功导出到 CSV 文件: {outPath}");
                 }
             }
-
-            Console.WriteLine("xls转csv成功");
         }
         catch (Exception ex) {
             Console.WriteLine(ex.ToString());
@@ -53,6 +97,28 @@ public class XlsTool {
 
 
         Console.Read();
+    }
+
+    /// <summary>
+    /// 简单的 CSV 字段转义函数：如果字段包含分隔符或引号，则用双引号包裹，并将内部的双引号转义为两个双引号。
+    /// </summary>
+    private static string EscapeCsvField(string field, string delimiter)
+    {
+        if (string.IsNullOrEmpty(field))
+        {
+            return string.Empty;
+        }
+
+        // 检查字段是否包含分隔符、双引号或换行符
+        if (field.Contains(delimiter) || field.Contains("\"") || field.Contains("\n") || field.Contains("\r"))
+        {
+            // 将内部的双引号转义为两个双引号
+            field = field.Replace("\"", "\"\"");
+            // 用双引号包裹整个字段
+            return $"\"{field}\"";
+        }
+
+        return field;
     }
 
     /// <summary>
@@ -66,7 +132,7 @@ public class XlsTool {
     /// <summary>
     /// 直接把xls转成配置类
     /// </summary>
-    public static void XlsToCfgModel(string src, string dst) {
+    public static void XlsToCfgModel(string src, string dst,string fileName) {
         try {
             if (string.IsNullOrEmpty(content)) {
 
@@ -178,20 +244,20 @@ public class XlsTool {
 
                             sb.Append("//member\n");
 
-                            sb.Append("\t\tpublic static string tableName=\"");
-                            sb.Append(Path.GetFileNameWithoutExtension(src).ToLower().Split('_')[0]);
+                            sb.Append("\tpublic static string tableName=\"");
+                            sb.Append(fileName);
                             sb.Append("\";\n");
 
                             for (int i = 0; i < attributeName.Count; i++) {
 
                                 if (!string.IsNullOrEmpty(atttibuteType[i]) && AppSetting.Ins.GetValue("outputType").Contains(atttibuteType[i])) {
 
-                                    sb.Append("\t\t/// <summary>\n");
-                                    sb.Append("\t\t/// ");
+                                    sb.Append("\t/// <summary>\n");
+                                    sb.Append("\t/// ");
                                     sb.Append(attributeNote[i]);
-                                    sb.Append("\n\t\t/// </summary>\n");
+                                    sb.Append("\n\t/// </summary>\n");
 
-                                    sb.Append("\t\tpublic ");
+                                    sb.Append("\tpublic ");
 
                                     switch (atttibuteType[i]) {
                                         case "int":
@@ -238,16 +304,16 @@ public class XlsTool {
                                 }
                             }
 
-                            sb.Append("//endMember\n");
+                            sb.Append("\t//endMember\n");
 
                             string[] readContents = contents[1].Split(new string[] { "//read" }, StringSplitOptions.RemoveEmptyEntries);
-                            sb.Append(readContents[0]);
+                            sb.AppendLine(readContents[0]);
 
                             for (int i = 0; i < attributeName.Count; i++) {
 
                                 if (!string.IsNullOrEmpty(atttibuteType[i])) {
 
-                                    sb.Append("\t\t\t");
+                                    sb.Append("\t\t");
                                     sb.Append(attributeName[i]);
                                     sb.Append("=");
 
@@ -349,27 +415,42 @@ public class XlsTool {
     /// <param name="outPath"></param>
     public static void XlsToSingleConfig(string path, string outPath)
     {
-        //把文件夹下所有的xls转成一个总配置文件
+        if (modifyCache==null)
+        {
+            modifyCache = new ModifyCache();
+        }
+
         string[] paths = Directory.GetFiles(path, "*.xl*", SearchOption.AllDirectories);
-
-        ByteArray ba = new ByteArray();
-
         for (int i = 0; i < paths.Length; i++)
         {
             XlsToConfig(paths[i],true, outPath);
         }
+        modifyCache.SaveCache();
     }
 
     public static byte[] XlsToConfig(string path,bool export = false,string outPath="") {
-        //把xls转成字节流
-        ByteArray ba = new ByteArray();
-
         try {
             if (File.Exists(path)&&!path.Contains("$") && (path.EndsWith(".xls") || path.EndsWith(".xlsx"))) {
+
                 string fileName = Path.GetFileNameWithoutExtension(path);
-                fileName = fileName.Split('_')[0];
                 fileName = fileName.ToLower();
 
+                string cfgPath = outPath + Path.DirectorySeparatorChar + $"{fileName}.bytes";
+
+                if (export)
+                {
+                    // 获取文件信息的 UTC 写入时间戳 (Ticks)
+                    FileInfo fileInfo = new FileInfo(path);
+                    // 使用 Ticks 进行精确对比
+                    long currentTicks = fileInfo.LastWriteTimeUtc.Ticks;
+                    if (!modifyCache.IsDiff(fileName, currentTicks) && File.Exists(cfgPath))
+                    {
+                        //修改时间没变，不管
+                        return null;
+                    }
+                }
+
+                ByteArray ba = new ByteArray();
                 ba.Write(fileName);
 
                 //获取数据长度
@@ -488,7 +569,6 @@ public class XlsTool {
                 {
                     //导出单表配置数据文件
                     Directory.CreateDirectory(outPath);
-                    string cfgPath = outPath + Path.DirectorySeparatorChar + $"{fileName}.bytes";
                     if (File.Exists(cfgPath))
                     {
                         File.Delete(cfgPath);
@@ -521,8 +601,15 @@ public class XlsTool {
 
         for (int i = 0; i < paths.Length; i++) {
             string fileName = Path.GetFileNameWithoutExtension(paths[i]);
-            fileName = fileName.Split('_')[0];
-            string className = "C" + fileName.Substring(0, 1).ToUpper() + fileName.Substring(1);
+
+            string[] names = fileName.Split('_');
+
+            string className = "C";
+            for (int j = 1; j < names.Length; j++)
+            {
+                string tmp = names[j];
+                className += tmp.Substring(0, 1).ToUpper() + tmp.Substring(1);
+            }
 
             string relativePath = paths[i].Replace(xlsPath, "");
 
@@ -530,7 +617,7 @@ public class XlsTool {
 
             string truePath = outputPath + relativePath + className + ".cs";
 
-            XlsToCfgModel(paths[i], truePath);
+            XlsToCfgModel(paths[i], truePath,fileName);
         }
 
         Console.WriteLine("配置类生成成功");

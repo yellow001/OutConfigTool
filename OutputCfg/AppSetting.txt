@@ -1,14 +1,15 @@
-﻿test::yellow
-connstring::server=120.25.84.142;database=TaskServer;uid=yellow;pwd=qW789456123=
-
+﻿
 //配置表文件夹路径
-xlsCfgDir::E:\Project\策划文档\planning_document\表格
+xlsCfgDir::E:\project\Design\表格
+
+//配置表csv文件夹路径
+xlsCfgCsvDir::E:\project\Design\表格csv
 
 //数据配置文件输出路径
-cfgOutputDir::E:\Project\策划文档\planning_document\表格数据输出
+cfgOutputDir::E:\project\Design\表格数据输出
 
 //配置类输出文件夹路径
-cfgModelOutputDir::E:\Project\策划文档\planning_document\表格类输出
+cfgModelOutputDir::E:\project\Design\表格类输出
 
 //输出类型
-outputType::int_string_bool_long
+outputType::int;string;bool;long;str;list;dic;list|int;list|str;list|long;dic|int_int;dic|int_str;dic|str_int;dic|str_str

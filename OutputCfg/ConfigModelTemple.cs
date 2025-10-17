@@ -11,7 +11,6 @@ public class ConfigModelTemple : BaseConfigModel
     public override void Read(ByteArray b)
     {
         base.Read(b);
-
         //read
     }
 
