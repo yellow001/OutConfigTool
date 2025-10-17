@@ -14,7 +14,7 @@ namespace OutputCfg {
             string cp = "";
             while (!isExit) {
                 Console.Clear();
-                Console.WriteLine("-------导表工具v1.0---------");
+                Console.WriteLine("-------导表工具v2.0---------");
                 Console.WriteLine("1 导出配置类以及配置数据(汇总一个配置文件)");
                 Console.WriteLine("2 导出配置类以及配置数据(配置文件分开导出)");
                 Console.WriteLine("3 仅导出配置数据(汇总一个配置文件)");
