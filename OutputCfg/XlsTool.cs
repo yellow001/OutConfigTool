@@ -4,7 +4,6 @@ using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
 using ExcelDataReader;
-using YUtility.Data;
 
 public class XlsTool {
 
@@ -198,14 +197,37 @@ public class XlsTool {
                                         case "int":
                                             sb.Append("int ");
                                             break;
-                                        case "str":
-                                            sb.Append("string ");
-                                            break;
                                         case "bool":
                                             sb.Append("bool ");
                                             break;
                                         case "long":
                                             sb.Append("long ");
+                                            break;
+                                        case "str":
+                                            sb.Append("string ");
+                                            break;
+                                        case "list":
+                                        case "list|int":
+                                            sb.Append("List<int> ");
+                                            break;
+                                        case "list|long":
+                                            sb.Append("List<long> ");
+                                            break;
+                                        case "list|str":
+                                            sb.Append("List<string> ");
+                                            break;
+                                        case "dic":
+                                        case "dic|int_int":
+                                            sb.Append("Dictionary<int, int> ");
+                                            break;
+                                        case "dic|int_str":
+                                            sb.Append("Dictionary<int, string> ");
+                                            break;
+                                        case "dic|str_int":
+                                            sb.Append("Dictionary<string, int> ");
+                                            break;
+                                        case "dic|str_str":
+                                            sb.Append("Dictionary<string, string> ");
                                             break;
                                         default:
                                             break;
@@ -233,14 +255,37 @@ public class XlsTool {
                                         case "int":
                                             sb.Append("ReadInt();\n");
                                             break;
-                                        case "str":
-                                            sb.Append("ReadString();\n");
-                                            break;
                                         case "bool":
                                             sb.Append("ReadBool();\n");
                                             break;
                                         case "long":
                                             sb.Append("ReadLong();\n");
+                                            break;
+                                        case "str":
+                                            sb.Append("ReadString();\n");
+                                            break;
+                                        case "list":
+                                        case "list|int":
+                                            sb.Append("ReadListInt();\n");
+                                            break;
+                                        case "list|long":
+                                            sb.Append("ReadListLong();\n");
+                                            break;
+                                        case "list|str":
+                                            sb.Append("ReadListStr();\n");
+                                            break;
+                                        case "dic":
+                                        case "dic|int_int":
+                                            sb.Append("ReadDicIntInt();\n");
+                                            break;
+                                        case "dic|int_str":
+                                            sb.Append("ReadDicIntStr();\n");
+                                            break;
+                                        case "dic|str_int":
+                                            sb.Append("ReadDicStrInt();\n");
+                                            break;
+                                        case "dic|str_str":
+                                            sb.Append("ReadDicStrStr();\n");
                                             break;
                                         default:
                                             break;
@@ -264,8 +309,12 @@ public class XlsTool {
         }
     }
 
-
-    public static void AllXlsToConfig(string path, string outPath) {
+    /// <summary>
+    /// 所有的配置表汇总成一个数据文件
+    /// </summary>
+    /// <param name="path"></param>
+    /// <param name="outPath"></param>
+    public static void XlsToOneConfig(string path, string outPath) {
         //把文件夹下所有的xls转成一个总配置文件
         string[] paths = Directory.GetFiles(path, "*.xl*", SearchOption.AllDirectories);
 
@@ -293,7 +342,25 @@ public class XlsTool {
         Console.WriteLine("配置数据导出成功");
     }
 
-    public static byte[] XlsToConfig(string path) {
+    /// <summary>
+    /// 每个配置文件导出自己的配置表
+    /// </summary>
+    /// <param name="path"></param>
+    /// <param name="outPath"></param>
+    public static void XlsToSingleConfig(string path, string outPath)
+    {
+        //把文件夹下所有的xls转成一个总配置文件
+        string[] paths = Directory.GetFiles(path, "*.xl*", SearchOption.AllDirectories);
+
+        ByteArray ba = new ByteArray();
+
+        for (int i = 0; i < paths.Length; i++)
+        {
+            XlsToConfig(paths[i],true, outPath);
+        }
+    }
+
+    public static byte[] XlsToConfig(string path,bool export = false,string outPath="") {
         //把xls转成字节流
         ByteArray ba = new ByteArray();
 
@@ -302,10 +369,14 @@ public class XlsTool {
                 string fileName = Path.GetFileNameWithoutExtension(path);
                 fileName = fileName.Split('_')[0];
                 fileName = fileName.ToLower();
+
                 ba.Write(fileName);
 
                 //获取数据长度
                 ByteArray baData = new ByteArray();
+
+                // 所有数据行的数据
+                List<byte[]> rowDatas = new List<byte[]>();
 
                 using (FileStream st = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)) {
                     IExcelDataReader reader = ExcelReaderFactory.CreateReader(st);
@@ -352,6 +423,9 @@ public class XlsTool {
 
                     //数据
                     while (reader.Read()) {
+
+                        ByteArray rowBa = new ByteArray(); // 临时存储单行数据
+
                         for (int i = 0; i < reader.FieldCount; i++) {
                             if (!string.IsNullOrEmpty(attributeName[i]) && !string.IsNullOrEmpty(atttibuteType[i])) {
 
@@ -359,37 +433,78 @@ public class XlsTool {
 
                                 switch (atttibuteType[i]) {
                                     case "int":
-                                        baData.Write(int.Parse(value));
-                                        break;
-                                    case "str":
-                                        baData.Write(value);
+                                        rowBa.Write(int.Parse(value));
                                         break;
                                     case "bool":
-                                        baData.Write(value.Equals("0") ? false : true);
+                                        rowBa.Write(value.Equals("0") ? false : true);
                                         break;
                                     case "long":
-                                        baData.Write(long.Parse(value));
+                                        rowBa.Write(long.Parse(value));
+                                        break;
+                                    case "str":
+                                    case "list":
+                                    case "list|int":
+                                    case "list|long":
+                                    case "list|str":
+                                    case "dic":
+                                    case "dic|int_int":
+                                    case "dic|int_str":
+                                    case "dic|str_int":
+                                    case "dic|str_str":
+                                        // 【统一处理】对所有字符串进行换行符转义
+                                        rowBa.Write(value.Replace("\r\n", "\\n").Replace("\n", "\\n"));
                                         break;
                                     default:
                                         break;
                                 }
                             }
                         }
-                        baData.Write("#");//每行数据的结束标志符
-                    }
 
-                    ba.Write(baData.GetLength());
-                    ba.Write(baData.GetBuffer());
-                    baData.Close();
+                        // 缓存这行数据的字节流
+                        rowDatas.Add(rowBa.GetBuffer());
+                        rowBa.Close();
+                    }
                 }
 
+                // 优化点 B：将记录总数写入 baData 的开头
+                int recordCount = rowDatas.Count;
+                baData.Write(recordCount); // 写入总记录数 (Int32)
 
+                // 优化点 C：将所有缓存的行数据顺序写入 baData
+                foreach (byte[] rowData in rowDatas)
+                {
+                    baData.Write(rowData); // 直接写入该行数据块
+                }
+
+                ba.Write(baData.GetLength());
+                ba.Write(baData.GetBuffer());
+                baData.Close();
+
+                if (!export)
+                {
+                    return ba.GetBuffer();
+                }
+                else
+                {
+                    //导出单表配置数据文件
+                    Directory.CreateDirectory(outPath);
+                    string cfgPath = outPath + Path.DirectorySeparatorChar + $"{fileName}.bytes";
+                    if (File.Exists(cfgPath))
+                    {
+                        File.Delete(cfgPath);
+                    }
+                    File.WriteAllBytes(cfgPath, CompressHelper.Compress(ba.GetBuffer()));
+
+                    ba.Close();
+
+                    Console.WriteLine($"配置数据 {fileName} 导出成功");
+                }
             }
         }
         catch (Exception ex) {
             Console.WriteLine(ex.ToString());
         }
-        return ba.GetBuffer();
+        return null;
     }
 
     /// <summary>

@@ -4,8 +4,6 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using YUtility.Data;
-using YUtility.Data.Config;
 
 namespace OutputCfg {
     class Program {
@@ -17,8 +15,10 @@ namespace OutputCfg {
             while (!isExit) {
                 Console.Clear();
                 Console.WriteLine("-------导表工具v1.0---------");
-                Console.WriteLine("1 导出配置类以及配置数据");
-                Console.WriteLine("2 仅导出配置数据");
+                Console.WriteLine("1 导出配置类以及配置数据(汇总一个配置文件)");
+                Console.WriteLine("2 导出配置类以及配置数据(配置文件分开导出)");
+                Console.WriteLine("3 仅导出配置数据(汇总一个配置文件)");
+                Console.WriteLine("4 仅导出配置数据(配置文件分开导出)");
 
                 int num;
 
@@ -30,12 +30,22 @@ namespace OutputCfg {
                     switch (num) {
                         case 1:
                             XlsTool.AllXlsToCfgModel();
-                            XlsTool.AllXlsToConfig(xp, cp);
+                            XlsTool.XlsToOneConfig(xp, cp);
 
                             isExit = true;
                             break;
                         case 2:
-                            XlsTool.AllXlsToConfig(xp, cp);
+                            XlsTool.AllXlsToCfgModel();
+                            XlsTool.XlsToSingleConfig(xp, cp);
+
+                            isExit = true;
+                            break;
+                        case 3:
+                            XlsTool.XlsToOneConfig(xp, cp);
+                            isExit = true;
+                            break;
+                        case 4:
+                            XlsTool.XlsToSingleConfig(xp, cp);
                             isExit = true;
                             break;
                         default:
